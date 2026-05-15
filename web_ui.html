@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Blockchain Node</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: rgba(30, 30, 30, 0.7);
+            --primary-color: #00ffcc;
+            --secondary-color: #ff00ff;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: radial-gradient(circle at top left, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1, h2 {
+            font-weight: 600;
+            margin-top: 0;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .node-info {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            background: rgba(0, 255, 204, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background: var(--surface-color);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        input[type="text"] {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0099ff 100%);
+            color: #000;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 204, 0.5);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, #ff6600 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+        }
+
+        button.secondary:hover {
+            box-shadow: 0 6px 20px rgba(255, 0, 255, 0.5);
+        }
+
+        .chain-view {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .chain-view::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chain-view::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+
+        .chain-view::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 4px;
+        }
+
+        .block {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1rem;
+            position: relative;
+            transition: transform 0.3s, background 0.3s;
+        }
+
+        .block:hover {
+            transform: translateX(5px);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .block-index {
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .block-tx {
+            font-size: 1.1rem;
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            word-break: break-all;
+        }
+
+        .block-hash {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+
+        .log-panel {
+            margin-top: 1.5rem;
+            background: rgba(0,0,0,0.5);
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #0f0;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>P2P Blockchain UI</h1>
+        <div class="node-info" id="node-ip">Loading IP...</div>
+    </div>
+
+    <div class="container">
+        <!-- Controls -->
+        <div class="panel control-panel">
+            <h2>Controls</h2>
+            
+            <div class="form-group">
+                <label for="tx-input">New Transaction</label>
+                <input type="text" id="tx-input" placeholder="e.g. Alice -> Bob 10 BTC">
+                <button id="mine-btn">Mine Block</button>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--glass-border); width: 100%; margin: 1rem 0;">
+
+            <div class="form-group">
+                <label>Sync with Network</label>
+                <button id="sync-btn" class="secondary">Request Chain Sync</button>
+            </div>
+
+            <div class="log-panel" id="log-console">
+                > System ready.<br>
+            </div>
+        </div>
+
+        <!-- Chain View -->
+        <div class="panel">
+            <h2>Current Blockchain</h2>
+            <div class="chain-view" id="chain-container">
+                <!-- Blocks will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        const chainContainer = document.getElementById('chain-container');
+        const nodeIpEl = document.getElementById('node-ip');
+        const logConsole = document.getElementById('log-console');
+
+        function log(message) {
+            const time = new Date().toLocaleTimeString();
+            logConsole.innerHTML += `[${time}] ${message}<br>`;
+            logConsole.scrollTop = logConsole.scrollHeight;
+        }
+
+        async function fetchInfo() {
+            try {
+                const res = await fetch(`${API_BASE}/info`);
+                const data = await res.json();
+                nodeIpEl.textContent = `Node: ${data.host}`;
+            } catch (err) {
+                console.error('Failed to fetch info', err);
+            }
+        }
+
+        async function fetchChain() {
+            try {
+                const res = await fetch(`${API_BASE}/chain`);
+                const data = await res.json();
+                renderChain(data.chain || []);
+            } catch (err) {
+                console.error('Failed to fetch chain', err);
+            }
+        }
+
+        function renderChain(chainData) {
+            chainContainer.innerHTML = '';
+            chainData.forEach((block, index) => {
+                const date = new Date(parseFloat(block.created_at) * 1000).toLocaleString();
+                const div = document.createElement('div');
+                div.className = 'block';
+                div.innerHTML = `
+                    <div class="block-header">
+                        <span class="block-index">Block #${index}</span>
+                        <span>${date}</span>
+                    </div>
+                    <div class="block-tx">TX: ${block.transaction || 'Genesis Block'}</div>
+                    <div class="block-hash">
+                        <div><strong>Hash:</strong> ${block.hash}</div>
+                        <div><strong>Prev:</strong> ${block.prev_hash}</div>
+                        <div><strong>Nonce:</strong> ${block.nonce}</div>
+                    </div>
+                `;
+                chainContainer.appendChild(div);
+            });
+        }
+
+        document.getElementById('mine-btn').addEventListener('click', async () => {
+            const txInput = document.getElementById('tx-input');
+            const tx = txInput.value.trim();
+            if (!tx) return;
+
+            log(`Mining block for: ${tx}...`);
+            const btn = document.getElementById('mine-btn');
+            btn.disabled = true;
+            btn.textContent = 'Mining...';
+
+            try {
+                const res = await fetch(`${API_BASE}/mine`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({transaction: tx})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    log(`Mined successfully! Hash: ${data.block.hash.substring(0, 10)}...`);
+                    txInput.value = '';
+                    await fetchChain();
+                } else {
+                    log(`<span style="color:red">Error: ${data.error}</span>`);
+                }
+            } catch (err) {
+                log(`<span style="color:red">Error mining block.</span>`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Mine Block';
+            }
+        });
+
+        document.getElementById('sync-btn').addEventListener('click', async () => {
+            log(`Requesting sync from network...`);
+            try {
+                const res = await fetch(`${API_BASE}/sync`, {method: 'POST'});
+                if (res.ok) {
+                    log(`Sync request broadcasted.`);
+                    setTimeout(fetchChain, 1000); // Wait a bit for sync to complete
+                } else {
+                    log(`<span style="color:red">Failed to sync.</span>`);
+                }
+            } catch (err) {
+                log(`<span style="color:red">Error syncing chain.</span>`);
+            }
+        });
+
+        // Auto refresh
+        setInterval(fetchChain, 3000);
+
+        // Init
+        fetchInfo();
+        fetchChain();
+    </script>
+</body>
+</html>

@@ -4,6 +4,8 @@ import json
 import sys
 import os
 import time
+import http.server
+import socketserver
 from core import Blockchain, Block
 
 PORT = 5000
@@ -137,6 +139,98 @@ class Node:
             elif cmd:
                 print("不明なコマンドです。")
 
+    def start_web_server(self):
+        """ Web UI と API を提供する HTTP サーバー """
+        node_instance = self
+        
+        class APIHandler(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass # アクセスログを抑制
+                
+            def do_GET(self):
+                if self.path == '/':
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.end_headers()
+                    with open('web_ui.html', 'rb') as f:
+                        self.wfile.write(f.read())
+                elif self.path == '/api/info':
+                    response_data = json.dumps({'host': node_instance.host}).encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Content-Length', str(len(response_data)))
+                    self.end_headers()
+                    self.wfile.write(response_data)
+                elif self.path == '/api/chain':
+                    response_data = json.dumps({'chain': node_instance.blockchain.get_chain_data()}).encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Content-Length', str(len(response_data)))
+                    self.end_headers()
+                    self.wfile.write(response_data)
+                else:
+                    self.send_error(404)
+
+            def do_POST(self):
+                if self.path == '/api/mine':
+                    try:
+                        content_length = int(self.headers.get('Content-Length', 0))
+                        post_data = self.rfile.read(content_length)
+                        data = json.loads(post_data.decode('utf-8'))
+                        tx = data.get('transaction', '')
+                        
+                        if tx:
+                            print(f"\n[Web UI] [{tx}] を含む新しいブロックをマイニング中...")
+                            prev_block = node_instance.blockchain.get_latest_block()
+                            new_block = Block(tx, prev_block.hash)
+                            new_block.mine(node_instance.blockchain.difficulty)
+                            node_instance.blockchain.chain.append(new_block)
+                            print(f"[Web UI] マイニング成功！ネットワークにブロードキャストします...")
+                            node_instance.broadcast({
+                                'type': 'new_block',
+                                'block': new_block.to_dict()
+                            })
+                            response_data = json.dumps({'status': 'success', 'block': new_block.to_dict()}).encode('utf-8')
+                            self.send_response(200)
+                            self.send_header('Content-type', 'application/json')
+                            self.send_header('Content-Length', str(len(response_data)))
+                            self.end_headers()
+                            self.wfile.write(response_data)
+                        else:
+                            response_data = json.dumps({'error': 'No transaction provided'}).encode('utf-8')
+                            self.send_response(400)
+                            self.send_header('Content-type', 'application/json')
+                            self.send_header('Content-Length', str(len(response_data)))
+                            self.end_headers()
+                            self.wfile.write(response_data)
+                    except Exception as e:
+                        response_data = json.dumps({'error': str(e)}).encode('utf-8')
+                        self.send_response(500)
+                        self.send_header('Content-type', 'application/json')
+                        self.send_header('Content-Length', str(len(response_data)))
+                        self.end_headers()
+                        self.wfile.write(response_data)
+                
+                elif self.path == '/api/sync':
+                    print("\n[Web UI] ネットワークにチェーンの同期を要求しています...")
+                    node_instance.broadcast({'type': 'request_chain'})
+                    response_data = json.dumps({'status': 'sync_requested'}).encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Content-Length', str(len(response_data)))
+                    self.end_headers()
+                    self.wfile.write(response_data)
+                else:
+                    self.send_error(404)
+
+        socketserver.TCPServer.allow_reuse_address = True
+        try:
+            httpd = socketserver.TCPServer((self.host, 8080), APIHandler)
+            print(f"[*] Web UI Server started on http://{self.host}:8080")
+            httpd.serve_forever()
+        except Exception as e:
+            print(f"[-] Web UI サーバーの起動に失敗しました: {e}")
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python3 node.py <ip_address>")
@@ -145,9 +239,13 @@ def main():
     host_ip = sys.argv[1]
     node = Node(host_ip)
     
-    # サーバーをバックグラウンドスレッドで起動
+    # P2Pサーバーをバックグラウンドスレッドで起動
     server_thread = threading.Thread(target=node.start_server, daemon=True)
     server_thread.start()
+    
+    # Webサーバーをバックグラウンドスレッドで起動
+    web_thread = threading.Thread(target=node.start_web_server, daemon=True)
+    web_thread.start()
     
     # サーバー起動のログが出るまで少し待つ
     time.sleep(0.5)

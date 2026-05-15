@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser P2P Node</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --surface-color: rgba(31, 40, 51, 0.85);
+            --primary-color: #66fcf1;
+            --secondary-color: #45a29e;
+            --text-primary: #ffffff;
+            --text-secondary: #c5c6c7;
+            --glass-border: rgba(102, 252, 241, 0.2);
+            --danger-color: #ff4b4b;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: radial-gradient(circle at top center, #1f2833 0%, #0b0c10 100%);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Login Screen --- */
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .login-card {
+            background: var(--surface-color);
+            padding: 3rem;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .login-card h1 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 2rem;
+        }
+
+        /* --- Dashboard --- */
+        #dashboard {
+            padding: 2rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .node-badge {
+            font-size: 1.2rem;
+            color: var(--bg-color);
+            background: var(--primary-color);
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(102, 252, 241, 0.4);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+            flex: 1;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--surface-color);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Forms & Inputs */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        input[type="text"] {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(102, 252, 241, 0.2);
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--bg-color);
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 252, 241, 0.4);
+        }
+
+        button:disabled {
+            background: #555;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: rgba(102, 252, 241, 0.1);
+        }
+
+        /* Blockchain View */
+        .chain-view {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 0.5rem;
+        }
+
+        .chain-view::-webkit-scrollbar { width: 8px; }
+        .chain-view::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
+        .chain-view::-webkit-scrollbar-thumb { background: var(--secondary-color); border-radius: 4px; }
+
+        .block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 8px;
+            padding: 1rem;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .block:hover {
+            background: rgba(0, 0, 0, 0.6);
+            border-left-color: #fff;
+        }
+
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .block-index {
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .block-tx {
+            font-size: 1.1rem;
+            padding: 0.8rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            margin-bottom: 0.8rem;
+        }
+
+        .block-details {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: grid;
+            grid-template-columns: 60px 1fr;
+            gap: 0.2rem 1rem;
+            word-break: break-all;
+        }
+        
+        .block-details span.label { color: #888; }
+
+        /* Console */
+        .console {
+            margin-top: 1.5rem;
+            background: #000;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #0f0;
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+        
+        .console span.time { color: #555; margin-right: 8px; }
+        .console span.err { color: var(--danger-color); }
+        .console span.info { color: #0cf; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-screen">
+        <div class="login-card">
+            <h1>P2P Web Node</h1>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">ネットワークに参加するノード名（ユーザー名）を入力してください。</p>
+            <div class="form-group">
+                <input type="text" id="username-input" placeholder="例: Alice" autocomplete="off" onkeydown="if(event.key==='Enter') login()">
+            </div>
+            <button onclick="login()" style="width: 100%; margin-top: 1rem;">ノードを起動</button>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard" style="display: none;">
+        <div class="header">
+            <div>
+                <h1 style="margin: 0; color: var(--primary-color);">Blockchain P2P Network</h1>
+                <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.3rem;" id="peers-status">ネットワーク接続中...</div>
+            </div>
+            <div class="node-badge" id="node-name-display">Node</div>
+        </div>
+
+        <div class="grid">
+            <!-- Left Panel: Controls -->
+            <div class="panel">
+                <h2>ウォレット・操作</h2>
+                
+                <div class="form-group">
+                    <label>送金先（To）</label>
+                    <input type="text" id="tx-to" placeholder="例: Bob">
+                </div>
+                <div class="form-group">
+                    <label>金額（Amount）</label>
+                    <input type="text" id="tx-amount" placeholder="例: 10 BTC">
+                </div>
+                <button id="mine-btn" onclick="mineTransaction()">送金＆マイニング</button>
+
+                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 2rem 0;">
+
+                <div class="form-group">
+                    <label>ネットワーク状態</label>
+                    <button class="btn-outline" onclick="requestSync()">チェーン同期を要求</button>
+                </div>
+
+                <div class="console" id="console"></div>
+            </div>
+
+            <!-- Right Panel: Chain -->
+            <div class="panel">
+                <h2>共有台帳 (Blockchain)</h2>
+                <div class="chain-view" id="chain-container">
+                    <!-- Blocks will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        // --- Blockchain Core Logic ---
+        const DIFFICULTY = 4;
+
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        class Block {
+            constructor(transaction, prev_hash) {
+                this.transaction = transaction;
+                this.prev_hash = prev_hash;
+                this.created_at = Date.now() / 1000.0;
+                this.nonce = 0;
+                this.hash = ""; // Will be set before mining
+            }
+
+            async initHash() {
+                this.hash = await this.calculateHash();
+            }
+
+            async calculateHash() {
+                return await sha256(this.transaction + this.prev_hash + this.created_at.toString());
+            }
+
+            async isValidPow(difficulty) {
+                const target = '0'.repeat(difficulty);
+                const powHash = await sha256(this.hash + this.nonce.toString());
+                return powHash.startsWith(target);
+            }
+            
+            static fromObject(obj) {
+                const b = new Block(obj.transaction, obj.prev_hash);
+                b.created_at = obj.created_at;
+                b.nonce = obj.nonce;
+                b.hash = obj.hash;
+                return b;
+            }
+        }
+
+        class Blockchain {
+            constructor() {
+                this.chain = [];
+            }
+            
+            async initGenesis() {
+                const genesis = new Block("Genesis Block", "0");
+                await genesis.initHash();
+                this.chain.push(genesis);
+            }
+
+            getLatestBlock() {
+                return this.chain[this.chain.length - 1];
+            }
+
+            async replaceChain(newChainData) {
+                if (newChainData.length <= this.chain.length) return false;
+
+                // Validate new chain
+                for (let i = 1; i < newChainData.length; i++) {
+                    const blockObj = newChainData[i];
+                    const prevBlockObj = newChainData[i-1];
+                    const block = Block.fromObject(blockObj);
+                    
+                    if (block.prev_hash !== prevBlockObj.hash) return false;
+                    const calculatedHash = await block.calculateHash();
+                    if (block.hash !== calculatedHash) return false;
+                    if (!(await block.isValidPow(DIFFICULTY))) return false;
+                }
+                
+                this.chain = newChainData.map(obj => Block.fromObject(obj));
+                return true;
+            }
+        }
+
+        // --- Application State ---
+        let username = "";
+        let blockchain = new Blockchain();
+        let mqttClient = null;
+        let isMining = false;
+        const TOPIC = 'antigravity/blockchain_p2p/public_room_1';
+
+        // UI Elements
+        const consoleEl = document.getElementById('console');
+        const chainContainer = document.getElementById('chain-container');
+
+        // --- Logging ---
+        function printLog(msg, type = '') {
+            const time = new Date().toLocaleTimeString('ja-JP', {hour12: false});
+            const spanClass = type ? `class="${type}"` : '';
+            consoleEl.innerHTML += `<div><span class="time">[${time}]</span> <span ${spanClass}>${msg}</span></div>`;
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // --- Initialization ---
+        async function login() {
+            const input = document.getElementById('username-input').value.trim();
+            if (!input) return;
+            
+            username = input;
+            document.getElementById('node-name-display').textContent = username;
+            
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'flex';
+            
+            printLog(`Node initialized as [${username}]`, 'info');
+            
+            // Create genesis if needed
+            await blockchain.initGenesis();
+            renderChain();
+            
+            // Connect to network
+            connectToNetwork();
+        }
+
+        function connectToNetwork() {
+            printLog("Connecting to Public P2P Network (MQTT)...");
+            
+            // Connect to public EMQX broker over Secure WebSockets
+            mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+            
+            mqttClient.on('connect', () => {
+                document.getElementById('peers-status').textContent = 'ネットワーク接続済み (Online)';
+                document.getElementById('peers-status').style.color = 'var(--primary-color)';
+                printLog("Connected to network.", "info");
+                
+                // Subscribe to our specific room
+                mqttClient.subscribe(TOPIC, (err) => {
+                    if (!err) {
+                        // Ask for current chain
+                        requestSync();
+                    } else {
+                        printLog("Failed to subscribe to network room.", "err");
+                    }
+                });
+            });
+
+            mqttClient.on('error', (err) => {
+                document.getElementById('peers-status').textContent = '接続エラー (Offline)';
+                document.getElementById('peers-status').style.color = 'var(--danger-color)';
+                printLog(`Connection error: ${err.message}`, "err");
+            });
+
+            mqttClient.on('message', async (topic, message) => {
+                try {
+                    const msg = JSON.parse(message.toString());
+                    if (msg.sender === username) return; // Ignore own messages
+                    
+                    await handleNetworkMessage(msg);
+                } catch (err) {
+                    // Ignore non-json parsing errors silently
+                }
+            });
+        }
+
+        // --- Network Comm ---
+        async function broadcast(message) {
+            message.sender = username;
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish(TOPIC, JSON.stringify(message));
+            } else {
+                printLog("Not connected to network. Cannot broadcast.", "err");
+            }
+        }
+
+        async function handleNetworkMessage(msg) {
+            if (msg.type === 'request_chain') {
+                printLog(`[${msg.sender}] requested chain sync.`);
+                broadcast({
+                    type: 'chain_response',
+                    chain: blockchain.chain
+                });
+            } 
+            else if (msg.type === 'chain_response') {
+                const replaced = await blockchain.replaceChain(msg.chain);
+                if (replaced) {
+                    printLog(`Synced chain from [${msg.sender}]. Length: ${blockchain.chain.length}`, 'info');
+                    renderChain();
+                }
+            }
+            else if (msg.type === 'new_block') {
+                const newBlock = Block.fromObject(msg.block);
+                const latest = blockchain.getLatestBlock();
+                
+                if (newBlock.prev_hash === latest.hash) {
+                    const calcHash = await newBlock.calculateHash();
+                    if (newBlock.hash === calcHash && await newBlock.isValidPow(DIFFICULTY)) {
+                        blockchain.chain.push(newBlock);
+                        printLog(`Received valid block from [${msg.sender}]. Added to chain.`, 'info');
+                        renderChain();
+                    } else {
+                        printLog(`Invalid block received from [${msg.sender}].`, 'err');
+                    }
+                } else {
+                    printLog(`Block from [${msg.sender}] does not link to our latest block. Requesting sync.`, 'err');
+                    requestSync();
+                }
+            }
+        }
+
+        function requestSync() {
+            printLog("Requesting chain sync from network...");
+            broadcast({ type: 'request_chain' });
+        }
+
+        // --- Mining ---
+        async function mineTransaction() {
+            if (isMining) return;
+            
+            const to = document.getElementById('tx-to').value.trim();
+            const amount = document.getElementById('tx-amount').value.trim();
+            
+            if (!to || !amount) {
+                printLog("送金先と金額を入力してください。", "err");
+                return;
+            }
+
+            const txString = `${username} -> ${to}: ${amount}`;
+            const btn = document.getElementById('mine-btn');
+            
+            isMining = true;
+            btn.disabled = true;
+            btn.textContent = 'Mining in progress...';
+            printLog(`Mining new block: [${txString}]...`);
+
+            try {
+                const prevBlock = blockchain.getLatestBlock();
+                const newBlock = new Block(txString, prevBlock.hash);
+                await newBlock.initHash();
+
+                const target = '0'.repeat(DIFFICULTY);
+                const startTime = Date.now();
+                
+                // Mining loop with yielding
+                while (true) {
+                    const data = newBlock.hash + newBlock.nonce.toString();
+                    const powHash = await sha256(data);
+                    
+                    if (powHash.startsWith(target)) {
+                        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                        printLog(`Mined successfully! Nonce: ${newBlock.nonce} (${elapsed}s)`, 'info');
+                        
+                        blockchain.chain.push(newBlock);
+                        renderChain();
+                        
+                        broadcast({
+                            type: 'new_block',
+                            block: newBlock
+                        });
+                        
+                        document.getElementById('tx-to').value = '';
+                        document.getElementById('tx-amount').value = '';
+                        break;
+                    }
+                    newBlock.nonce++;
+                    
+                    // Yield to browser every 1000 iterations to keep UI responsive
+                    if (newBlock.nonce % 1000 === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
+                }
+            } catch (err) {
+                printLog(`Mining failed: ${err.message}`, 'err');
+            } finally {
+                isMining = false;
+                btn.disabled = false;
+                btn.textContent = '送金＆マイニング';
+            }
+        }
+
+        // --- UI Rendering ---
+        function renderChain() {
+            chainContainer.innerHTML = '';
+            // Render backwards (newest first)
+            [...blockchain.chain].reverse().forEach((block) => {
+                const index = blockchain.chain.indexOf(block);
+                const date = new Date(block.created_at * 1000).toLocaleString('ja-JP');
+                
+                const div = document.createElement('div');
+                div.className = 'block';
+                div.innerHTML = `
+                    <div class="block-header">
+                        <span class="block-index">Block #${index}</span>
+                        <span>${date}</span>
+                    </div>
+                    <div class="block-tx">${block.transaction}</div>
+                    <div class="block-details">
+                        <span class="label">Hash:</span> <span>${block.hash}</span>
+                        <span class="label">Prev:</span> <span>${block.prev_hash}</span>
+                        <span class="label">Nonce:</span> <span>${block.nonce}</span>
+                    </div>
+                `;
+                chainContainer.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>

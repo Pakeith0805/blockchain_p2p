@@ -15,25 +15,24 @@ class Node:
         self.blockchain = Blockchain(difficulty=4) # ここの数字を大きくするとマイニングが難しくなる
         
     def start_server(self):
-        """ 他ノードからの接続を待ち受けるTCPサーバー """
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        """ 他ノードからのデータを受信するUDPサーバー """
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         server.bind((self.host, PORT))
-        server.listen(5)
-        print(f"[*] Node Server started on {self.host}:{PORT}")
+        print(f"[*] Node UDP Server started on {self.host}:{PORT}")
         
         while True:
-            client, addr = server.accept()
-            threading.Thread(target=self.handle_client, args=(client,), daemon=True).start()
+            try:
+                data, addr = server.recvfrom(65535)
+                threading.Thread(target=self.handle_message, args=(data, addr), daemon=True).start()
+            except Exception as e:
+                print(f"[-] サーバーエラー: {e}")
 
-    def handle_client(self, client):
+    def handle_message(self, data, addr):
         """ 受信したメッセージを処理する """
         try:
-            # 大きなチェーンデータも受け取れるようバッファを大きめに取る
-            data = client.recv(40960).decode('utf-8')
             if not data:
                 return
-            message = json.loads(data)
+            message = json.loads(data.decode('utf-8'))
             
             msg_type = message.get('type')
             
@@ -59,41 +58,31 @@ class Node:
                     'type': 'chain_response',
                     'chain': self.blockchain.get_chain_data()
                 }
-                client.send(json.dumps(response).encode('utf-8'))
+                self.send_message(addr[0], response)
                 
             elif msg_type == 'chain_response':
                 # チェーンの同期要求に対する応答を受け取った時
                 chain_data = message.get('chain')
                 success = self.blockchain.replace_chain(chain_data)
                 if success:
-                    print("\n[+] チェーンが同期され、より長くて正当なチェーンに置き換わりました。")
+                    print(f"\n[+] {addr[0]} からチェーンが同期され、より長くて正当なチェーンに置き換わりました。")
                 else:
                     print("\n[-] 受信したチェーンは既存のチェーンより短いか、不正なため破棄されました。")
                     
         except Exception as e:
             print(f"\n[-] 通信エラー: {e}")
-        finally:
-            client.close()
 
     def send_message(self, target_ip, message):
-        """ 指定したIPアドレスにメッセージを送信する """
+        """ 指定したIPアドレスにメッセージを送信する(UDP) """
         if target_ip == self.host:
             return # 自分自身には送らない
         try:
-            client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.settimeout(5)  # 念のためタイムアウトを延長
-            client.connect((target_ip, PORT))
-            client.send(json.dumps(message).encode('utf-8'))
+            client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            client.sendto(json.dumps(message).encode('utf-8'), (target_ip, PORT))
             
-            # チェーン同期要求の場合は応答を待つ
-            if message.get('type') == 'request_chain':
-                data = client.recv(40960).decode('utf-8')
-                if data:
-                    resp = json.loads(data)
-                    if resp.get('type') == 'chain_response':
-                        success = self.blockchain.replace_chain(resp.get('chain'))
-                        if success:
-                            print(f"[+] {target_ip} からチェーンを同期しました。")
+            # UDPはコネクションレスなので、ここで応答を待たない。
+            # 相手からの chain_response は start_server ループで非同期に受信される。
+            
             client.close()
             print(f"[debug] メッセージ({message.get('type')})を {target_ip} に送信完了しました。")
         except Exception as e:

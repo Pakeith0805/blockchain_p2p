@@ -11,32 +11,31 @@ class Block:
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
-        """ transaction + prev_hash + created_at からハッシュを計算 """
-        data = str(self.transaction) + str(self.prev_hash) + str(self.created_at)
+        """ transaction + prev_hash + created_at + nonce からハッシュを計算 """
+        # 修正: ハッシュの計算材料に最初から nonce を含めるように変更 (ビットコイン仕様)
+        data = str(self.transaction) + str(self.prev_hash) + str(self.created_at) + str(self.nonce)
         return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
     def mine(self, difficulty):
-        """ PoW: hash(ブロックハッシュ + nonce) の先頭が 0 * difficulty になるまで計算 """
+        """ PoW: calculate_hash() の結果（self.hash）が 0 * difficulty になるまで計算 """
+        # 修正: ループ毎に nonce を更新しながら、ブロックのハッシュ (self.hash) 自体を直接再計算するように変更 (二重ハッシュの廃止)
         target = '0' * difficulty
         start_time = time.time()
         while True:
-            data_to_hash = str(self.hash) + str(self.nonce)
-            pow_hash = hashlib.sha256(data_to_hash.encode('utf-8')).hexdigest()
-            
-            if pow_hash.startswith(target): # つまり、0000から始まってたら
+            self.hash = self.calculate_hash()
+            if self.hash.startswith(target): # つまり、0000から始まってたら
                 end_time = time.time()
                 elapsed_time = end_time - start_time
-                print(f"Block mined! Nonce: {self.nonce}, PoW Hash: {pow_hash}")
+                print(f"Block mined! Nonce: {self.nonce}, Hash: {self.hash}")
                 print(f"マイニング時間: {elapsed_time:.4f} 秒")
                 break
             self.nonce += 1
 
     def is_valid_pow(self, difficulty):
         """ ブロックのPoW条件が満たされているか検証 """
+        # 修正: ブロックのハッシュ (self.hash) 自体が calculate_hash() と一致し、かつターゲットの 0000... で始まっているかをシンプルに検証
         target = '0' * difficulty
-        data_to_hash = str(self.hash) + str(self.nonce)
-        pow_hash = hashlib.sha256(data_to_hash.encode('utf-8')).hexdigest()
-        return pow_hash.startswith(target)
+        return self.hash == self.calculate_hash() and self.hash.startswith(target)
 
     def to_dict(self):
         return {

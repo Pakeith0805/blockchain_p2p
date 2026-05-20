@@ -63,9 +63,11 @@ class Node:
             elif msg_type == 'chain_response':
                 # チェーンの同期要求に対する応答を受け取った時
                 chain_data = message.get('chain')
-                success = self.blockchain.replace_chain(chain_data)
-                if success:
+                result = self.blockchain.replace_chain(chain_data)
+                if result is True:
                     print(f"\n[+] {addr[0]} からチェーンが同期され、より長くて正当なチェーンに置き換わりました。")
+                elif result is None:
+                    print(f"\n[*] {addr[0]} のチェーンは既存のチェーンと同一です。")
                 else:
                     print("\n[-] 受信したチェーンは既存のチェーンより短いか、不正なため破棄されました。")
                     

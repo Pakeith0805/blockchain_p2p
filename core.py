@@ -115,6 +115,16 @@ class Blockchain:
         """ 新しいチェーンデータを受け取り、より長くて妥当なら置き換える（最長チェーン選択アルゴリズム） """
         new_chain = [Block.from_dict(b_data) for b_data in chain_data]
         
+        # 完全に同じチェーンであるか確認
+        if len(new_chain) == len(self.chain):
+            is_same = True
+            for i in range(len(new_chain)):
+                if new_chain[i].hash != self.chain[i].hash:
+                    is_same = False
+                    break
+            if is_same:
+                return None # 同一のチェーン
+        
         # 現在のチェーンより長いか確認
         if len(new_chain) <= len(self.chain):
             return False
